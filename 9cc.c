@@ -157,8 +157,8 @@ typedef enum{
   ND_DIV,
   ND_EQ, // ==
   ND_NE, // !=
-  ND_LT, // <
-  ND_LE, // <=
+  ND_LT, // < less than
+  ND_LE, // <= less than or equal to
   ND_NUM,
 }Nodekind;
 
