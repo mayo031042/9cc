@@ -18,10 +18,11 @@ typedef enum {
 // token type
 typedef struct Token Token;
 struct Token {
-  TokenKind kind; // トークンの型
-  Token *next;    // 次の入力トークン
+  TokenKind kind; 
+  Token *next;
   int val;        // kindがTK_NUMの場合、その数値
   char *str;      // トークン文字列
+  int len;
 };
 
 char *user_input;
@@ -55,8 +56,10 @@ void error_at(char *loc,char *fmt, ...) {
 
 // 次のトークンが期待している記号か否か。
 // 偽:ret 0; <-> 真:トークンを1つ読み進めてret 1;
-bool consume(char op) {
-  if (token->kind != TK_RESERVED || token->str[0] != op)
+bool consume(char *op) {
+  if (token->kind != TK_RESERVED 
+      || strlen(op) != token->len
+      || memcmp(token->str,op,token->len))
     return false;
   token = token->next;
   return true;
@@ -64,9 +67,9 @@ bool consume(char op) {
 
 // 次のトークンが期待している記号か否か。
 // 偽:error; <-> 真:トークンを1つ読み進める;
-void expect(char op) {
-  if (token->kind != TK_RESERVED || token->str[0] != op)
-  // error_at -> exit(1)
+void expect(char *op) {
+  if (token->kind != TK_RESERVED || strlen(op) !=token->len 
+      || memcmp(token->str,op,token->len))
     error_at(token->str,"'%c'ではありません", op);
   token = token->next;
 }
@@ -87,16 +90,22 @@ bool at_eof() {
 
 // 新しいトークンを作成してcurに繋げる
 // 関数ポインタではなくポインタを返す関数なので（）は不要
-Token *new_token(TokenKind kind, Token *cur, char *str) {
+Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
   Token *tok = calloc(1, sizeof(Token));
   tok->kind = kind;
   tok->str = str;
+  tok->len=len;
   cur->next = tok;
   return tok;
 }
 
+bool startswith(char *p, char *q){
+  return memcmp(p,q,strlen(q))==0;
+}
+
 // 入力文字列pをトークナイズしてそれを返す
-Token *tokenize(char *p) {
+Token *tokenize() {
+  char *p=user_input;
   Token head;
   head.next = NULL;
   Token *cur = &head;
@@ -107,24 +116,34 @@ Token *tokenize(char *p) {
       p++;
       continue;
     }
+  // ２ 文字文の演算子の場合
+    if(starswith(p,"==") || starswith(p,"!=")
+        || starswith(p,"<=") || starswith(p,">=")){
+      cur =new_token(TK_RESERVED,cur,p,2);
+      p+=2;
+      continue;
+    }
 
-    if(strchr("+-*/()",*p)){
-      cur = new_token(TK_RESERVED, cur, p++);
+  // 1 文字文の演算子の場合
+    if(strchr("+-*/()<>",*p)){
+      cur = new_token(TK_RESERVED, cur, p,1);
+      p++;
       continue;
     }
 
     if (isdigit(*p)) {
-      cur = new_token(TK_NUM, cur, p);
+      cur = new_token(TK_NUM, cur, p,0);
+      char *q=p;
       cur->val = strtol(p, &p, 10);
+      cur->len=p-q;
       continue;
     }
 
     error_at(token->str,"トークナイズできません");
   }
 
-  new_token(TK_EOF, cur, p);
+  new_token(TK_EOF, cur, p,0);
   return head.next;
-
 }
 
 // 
@@ -136,6 +155,10 @@ typedef enum{
   ND_SUB,
   ND_MUL,
   ND_DIV,
+  ND_EQ, // ==
+  ND_NE, // !=
+  ND_LT, // <
+  ND_LE, // <=
   ND_NUM,
 }Nodekind;
 
@@ -148,12 +171,14 @@ struct Node{
   int val;
 };
 
+// Nodekind が kind であるような新しいnodeを作成する
 Node *new_node(Nodekind kind){
   Node *node=calloc(1,sizeof(Node));
   node->kind=kind;
   return node;
 }
 
+// 右辺と左辺をつなぐようなNKがkindであるような新しいnodeを作成する
 Node *new_binary(Nodekind kind,Node *lhs,Node *rhs){
   Node *node=new_node(kind);
   node->lhs=lhs;
@@ -161,48 +186,96 @@ Node *new_binary(Nodekind kind,Node *lhs,Node *rhs){
   return node;
 }
 
+// 整数型の終端記号であるような新しいnodeを作成する
 Node *new_num(int val){
   Node *node=new_node(ND_NUM);
   node->val=val;
   return node;
 }
 
-// expr = mul("+"mul | "-"mul)*
-Node *expr();
-// mul = primary("*"primary | "/"primary)*
-Node *mul();
+// expr = equality
+// equality = relational("=="relational | "!="relational)*
+// relational = add("<"add | "<="add | ">"add | ">="add)*
+// add = mul("+"mul | "-"mul)*
+// mul = unary("*"unary | "/"unary)*
+// unary = ("+" | "-")? primary
 // primary = "("expr")" | num
+Node *expr();
+Node *equality();
+Node *relational();
+Node *add();
+Node *mul();
+Node *unary();
 Node *primary();
 
-// expr() -> mul() -> primary()
 Node *expr(){
-  Node *node=mul();
+  return equality();
+}
+
+Node *equality(){
+  Node *node=relational();
+
   for(;;){
-    // consume:偽ならTokeはそのままなので繰り返し判定可能
-    if(consume('+'))
+    if(consume("=="))
+      node=new_binary(ND_EQ,node,relational());
+    else if(consume("!="))
+      node=new_binary(ND_NE,node,relational());
+    else return node;
+  }
+}
+
+Node *relational(){
+  Node *node=add();
+
+  for(;;){
+    if(consume("<="))
+      node=new_binary(ND_LE,node,add());
+    else if(consume(">="))
+      node=new_binary(ND_LE,add(),node);
+    else if(consume("<"))
+      node=new_binary(ND_LT,node,add());
+    else if(consume(">"))
+      node=new_binary(ND_LE,add(),node);
+    else return node;
+  }
+}
+
+Node *add(){
+  Node *node=mul();
+
+  for(;;){
+    if(consume("+"))
       node=new_binary(ND_ADD,node,mul());
-    else if(consume('-'))
+    else if(consume("-"))
       node=new_binary(ND_SUB,node,mul());
     else return node;
   }
 }
 
 Node *mul(){
-  Node *node=primary();
+  Node *node=unary();
   for(;;){
-    // consume:偽ならTokeはそのままなので繰り返し判定可能
-    if(consume('*'))
-      node=new_binary(ND_MUL,node,primary());
-    else if(consume('/'))
-      node=new_binary(ND_DIV,node,primary());
+    // consume:偽ならTokenはそのままなので繰り返し判定可能
+    if(consume("*"))
+      node=new_binary(ND_MUL,node,unary());
+    else if(consume("/"))
+      node=new_binary(ND_DIV,node,unary());
     else return node;
   }
 }
 
+Node *unary(){
+  if(consume("+"))
+    return primary();
+  if(consume("-"))
+    return new_binary(ND_SUB,new_num(0),primary());
+  return primary();
+}
+
 Node *primary(){
-  if(consume('(')){
+  if(consume("(")){
     Node *node=expr();
-    expect(')');
+    expect(")");
     return node;
   }
 
@@ -239,6 +312,26 @@ void gen(Node *node){
     printf("  cqo\n");
     printf("  idiv rdi\n");
     break;
+  case ND_EQ:
+    printf("  cmp rax,rdi\n");
+    printf("  sete al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_NE:
+    printf("  cmp rax,rdi\n");
+    printf("  setne al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_LT:
+    printf("  cmp rax,rdi\n");
+    printf("  setl al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_LE:
+    printf("  cmp rax,rdi\n");
+    printf("  setle al\n");
+    printf("  movzb rax, al\n");
+    break; 
   }
 
   printf("  push rax\n");
