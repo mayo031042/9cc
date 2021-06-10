@@ -2,11 +2,10 @@
 
 // "=="が複数個って？
 
-// 現在着目しているトークン
+// 唯一の定義
 Token *token;
 char *user_input;
 
-// main関数と上記のみ
 int main(int argc, char **argv) {
 	user_input=argv[1];
 

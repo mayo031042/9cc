@@ -1,8 +1,5 @@
 #include "9cc.h"
 
-// token, node 関連の関数？
-// と上記
-
 void error(char *fmt,...){
   va_list ap;
   va_start(ap,fmt);
@@ -217,5 +214,3 @@ Node *primary(){
 
   return new_num(expect_number());
 }
-
-

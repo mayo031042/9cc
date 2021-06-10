@@ -7,12 +7,7 @@
 
 // 関数の宣言と列挙型、構造体の表記のみ
 // これらは他ファイルをコンパイルするときに必要な情報のまとめ
-/*
-void cng_user_input(char *argv);
-char *char_user_input();
-*/
 
-extern char *user_input;
 
 // error
 void error(char *fmt,...);
@@ -35,6 +30,7 @@ struct Token{
 };
 
 // extern 
+extern char *user_input;
 extern Token *token;
 
 bool consume(char *op);
@@ -71,8 +67,9 @@ Node *new_node(Nodekind kind);
 Node *new_binary(Nodekind kind,Node *lhs,Node *rhs);
 Node *new_num(int val);
 
+// 
 // RDP
-
+// 
 // expr = equal
 // equal = rela("=="rela | "!="rela)*
 // rela = add("<"add | "<="add | ">"add | ">="add)*
