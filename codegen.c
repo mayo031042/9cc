@@ -10,6 +10,7 @@ void gen(Node *node)
     return;
   }
 
+
   gen(node->lhs);
   gen(node->rhs);
 
