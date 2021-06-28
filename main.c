@@ -22,8 +22,8 @@ int main(int argc, char **argv)
   printf("main:\n");
 
   gen(node);
-
   printf("  pop rax\n");
   printf("  ret\n");
   return 0;
 }
+// commit from funclocalvar
