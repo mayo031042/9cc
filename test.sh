@@ -29,3 +29,6 @@ assert 1 "1<=1"
 assert 0 "1>=2"
 
 echo OK
+
+# execute -> ($chmod a+x test.sh) -> $ ./test.sh
+# debug -> $ bash -x test.sh

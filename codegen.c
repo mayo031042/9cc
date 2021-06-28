@@ -2,10 +2,12 @@
 
 // gen 関数のみ
 
-void gen(Node *node){
-  if(node->kind==ND_NUM){
-    printf("  push %d\n",node->val);
-    return ;
+void gen(Node *node)
+{
+  if (node->kind == ND_NUM)
+  {
+    printf("  push %d\n", node->val);
+    return;
   }
 
   gen(node->lhs);
@@ -14,7 +16,8 @@ void gen(Node *node){
   printf("  pop rdi\n");
   printf("  pop rax\n");
 
-  switch (node->kind){
+  switch (node->kind)
+  {
   case ND_ADD:
     printf("  add rax, rdi\n");
     break;
@@ -47,9 +50,8 @@ void gen(Node *node){
     printf("  cmp rax,rdi\n");
     printf("  setle al\n");
     printf("  movzb rax, al\n");
-    break; 
+    break;
   }
 
   printf("  push rax\n");
 }
-
