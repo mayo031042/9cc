@@ -26,5 +26,3 @@ int main(int argc, char **argv)
   printf("  ret\n");
   return 0;
 }
-// commit from funclocalvar
-// main
